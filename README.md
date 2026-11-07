@@ -8,6 +8,47 @@ Two self-checking HIP examples targeting gfx942 (MI300X):
 Both check every output element and return a nonzero status on failure.
 Their sizes exercise multiple blocks and a partially filled final block.
 
+## Project layout
+
+Each sample has its own directory at the project root:
+
+```text
+hip-vector-add/
+  main.cpp
+hip-memcopy/
+  main.cpp
+common/
+  hip-check.hpp
+```
+
+To add a sample, create a root directory containing its `.cpp` or `.hip` sources
+and add one line to the root `CMakeLists.txt`:
+
+```cmake
+add_hip_sample(my-sample)
+```
+
+The shared setup lives in `cmake/HipSamples.cmake`; the root CMake file only
+declares the project and lists samples.
+
+`add_hip_sample()` collects sources and `.h`/`.hpp` headers directly in that directory,
+applies the shared HIP compiler settings and includes `common/`, and registers
+both simulator tests. Source additions and removals trigger CMake reconfiguration
+on the next build. No per-sample CMake file is needed. Use letters, digits, `_`
+and `-` in sample names, starting with a letter or digit.
+
+Build targets and run commands use the directory name:
+
+```sh
+./build.sh my-sample
+./run.sh simdojo my-sample
+./run.sh gem5-kmd my-sample
+```
+
+`./test.sh` automatically includes the new sample. To add a named CLion Run
+configuration, copy an existing Shell Script configuration and change its sample
+argument.
+
 ## Requirements
 
 Use a Linux host with a local Docker Engine, Docker CLI, CMake 3.25+ (for
@@ -61,13 +102,17 @@ by the scripts. Both builds use the same CMake targets and preset options.
 
 ```sh
 ./build.sh
-./build.sh --target hip-memcopy
+./build.sh hip-memcopy
 ./run.sh simdojo hip-memcopy
 ./run.sh gem5-kmd hip-vector-add
 ./test.sh                 # build and run all four tests
 ./test.sh simdojo         # build and run one backend
 ./test.sh gem5-kmd
 ```
+
+`build.sh` accepts one or more sample names. With no arguments it builds all
+samples; leading options are forwarded to `cmake --build` (for example,
+`./build.sh --clean-first`).
 
 The root CMake project uses native HIP, not Docker custom compilation commands.
 Run CMake directly only in an SDK environment, or use the host scripts above.
