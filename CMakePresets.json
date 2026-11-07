@@ -1,0 +1,48 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "simdojo",
+      "inherits": "default",
+      "filter": {
+        "include": {
+          "label": "^simdojo$"
+        }
+      }
+    },
+    {
+      "name": "gem5-kmd",
+      "inherits": "default",
+      "filter": {
+        "include": {
+          "label": "^gem5-kmd$"
+        }
+      }
+    }
+  ]
+}
