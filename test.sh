@@ -8,4 +8,4 @@ fi
 "$root/build.sh"
 args=()
 if [[ $# -eq 1 ]]; then args=(-L "^$1$"); fi
-exec ctest --test-dir "$root/build/cli" --output-on-failure "${args[@]}"
+exec ctest --test-dir "$root/build" --output-on-failure "${args[@]}"

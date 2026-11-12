@@ -6,3 +6,4 @@ include(cmake/HipSamples.cmake)
 
 add_hip_sample(hip-vector-add)
 add_hip_sample(hip-memcopy)
+add_hip_sample(hip-julia-fractal)

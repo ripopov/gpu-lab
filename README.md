@@ -1,12 +1,15 @@
 # GPU lab samples
 
-Two self-checking HIP examples targeting gfx942 (MI300X):
+Three self-checking HIP examples targeting gfx942 (MI300X):
 
 - **hip-vector-add** adds two vectors.
 - **hip-memcopy** copies an integer buffer with a GPU kernel.
+- **[hip-julia-fractal](hip-julia-fractal/README.md)** renders a supersampled
+  320×240 Julia fractal.
 
-Both check every output element and return a nonzero status on failure.
-Their sizes exercise multiple blocks and a partially filled final block.
+All validate their GPU results and return a nonzero status on failure.
+The vector-add and memory-copy sizes exercise multiple blocks and a partially
+filled final block.
 
 ## Project layout
 
@@ -17,6 +20,9 @@ hip-vector-add/
   main.cpp
 hip-memcopy/
   main.cpp
+hip-julia-fractal/
+  main.cpp
+  README.md
 common/
   hip-check.hpp
 ```
@@ -84,7 +90,7 @@ Images are never built or pulled by this project.
    **hip-memcopy / gem5-kmd**, and click Run. These are host Shell Script
    configurations; enable CLion's Shell Script plugin if needed.
 
-Both samples are real `add_executable` targets with their sources compiled
+All samples are real `add_executable` targets with their sources compiled
 as HIP. CLion's Build action builds those targets in the SDK. HIP-specific
 editor diagnostics still depend on CLion's language-engine support.
 
@@ -94,7 +100,7 @@ there is no separate build-before-run task to configure. Use these configuration
 for simulator execution; a plain CMake Application would launch the binary
 directly rather than through rocjitsu.
 
-CLion uses `build/ide`, while the host scripts use `build/cli`. Separate caches
+CLion uses `build/ide`, while the host scripts use `build`. Separate caches
 avoid conflicts between CLion's container mount paths and the host paths used
 by the scripts. Both builds use the same CMake targets and preset options.
 
@@ -105,7 +111,7 @@ by the scripts. Both builds use the same CMake targets and preset options.
 ./build.sh hip-memcopy
 ./run.sh simdojo hip-memcopy
 ./run.sh gem5-kmd hip-vector-add
-./test.sh                 # build and run all four tests
+./test.sh                 # build and run all six tests
 ./test.sh simdojo         # build and run one backend
 ./test.sh gem5-kmd
 ```
@@ -123,13 +129,38 @@ The host coordinates both containers; the build container needs no Docker socket
 Each test has its own containers and runtime files, and checks that the runner
 exits successfully. Containers are removed on completion or failure.
 
-Executables are in `build/cli/bin/`. Logs and gem5 statistics are in
-`build/cli/results/<backend>/<example>/`. To rerun without rebuilding:
+Run containers use Docker's `--init` to reap detached rocjitsu memory keepers.
+For gem5-kmd, the SDK container also joins the runner's private PID namespace
+with `--pid=container:<runner>`. This makes socket peer PIDs visible in both
+directions, allowing rocjitsu to authorize daemon access to application memory.
+The host PID namespace, capabilities, and default security profiles are unchanged.
+
+Some rocjitsu versions still print the memory-keeper child-wait warning when
+an application is a direct child of PID 1, even with a reaping init present.
+That warning is conservative; `--init` supplies the required reaper. The
+separate "no usable peer credentials" warning should not occur with the shared
+PID namespace.
+
+Executables are in `build/bin/`. Logs and gem5 statistics are in
+`build/results/<backend>/<example>/`. To rerun without rebuilding:
 
 ```sh
 ./run.sh --no-build simdojo hip-memcopy
-ctest --test-dir build/cli --output-on-failure
+ctest --test-dir build --output-on-failure
 ```
+
+To record a VTR trace, add `--vtr` before the backend (gem5-kmd only):
+
+```sh
+./run.sh --vtr gem5-kmd hip-julia-fractal
+./run.sh --no-build --vtr gem5-kmd hip-vector-add
+```
+
+The trace is written to `build/results/gem5-kmd/<sample>/trace.vtr`, alongside
+`stats.txt` and the logs. With an explicit build directory, it goes under that
+directory's `results/` instead. `--vtr` and `--no-build` may appear in either order;
+`--vtr` with simdojo is rejected. Tracing is off by default and can substantially
+increase output size and simulator runtime.
 
 CTest must run on the **host**, since tests coordinate Docker containers.
 Use `test.sh` instead of the Docker profile's built-in CTest run configuration.

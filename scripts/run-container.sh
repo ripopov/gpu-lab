@@ -7,6 +7,7 @@ runner=$3
 platform=$4
 app=$5
 output=$6
+shift 6 # Remaining arguments are gem5 options, not configuration-script options.
 client="gpu-lab-samples-$$-sdk"
 server="gpu-lab-samples-$$-runner"
 uid=$(id -u)
@@ -33,12 +34,21 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+# Docker's init reaps detached rocjitsu memory keepers in both backends.
 attach=()
+client_namespace=()
 if [[ "$backend" == gem5-kmd ]]; then
-    docker run --detach --pull never --network none --shm-size 2g \
+    runner_env=()
+    if (( $# > 0 )); then
+        # The runner inserts these before its configuration script. NUL-delimited
+        # arguments preserve quoting; the existing runtime mount carries the file.
+        printf '%s\0' "$@" > "$output/runtime/gem5-args.bin"
+        runner_env=(-e HSAKMT_GEM5_ARGS_FILE=/run/rocjitsu/gem5-args.bin)
+    fi
+    docker run --detach --init --pull never --network none --shm-size 2g \
         --platform "$platform" --name "$server" \
         -e HSAKMT_RUN_UID="$uid" -e HSAKMT_RUN_GID="$gid" \
-        -e HSAKMT_OUTPUT_DIR=/outputs \
+        -e HSAKMT_OUTPUT_DIR=/outputs "${runner_env[@]}" \
         -v "$output:/outputs" -v "$output/runtime:/run/rocjitsu" \
         "$runner" run > /dev/null
     ready=false
@@ -52,10 +62,13 @@ if [[ "$backend" == gem5-kmd ]]; then
     done
     [[ "$ready" == true ]] || { echo "gem5 did not become ready." >&2; exit 1; }
     attach=(--attach)
+    # Socket peer credentials and process_vm_* require mutually visible PIDs.
+    client_namespace=(--pid="container:$server")
 fi
 
-timeout 300 docker run --rm --pull never --network none \
+timeout 300 docker run --rm --init --pull never --network none \
     --platform "$platform" --name "$client" --user "$uid:$gid" \
+    "${client_namespace[@]}" \
     -e HOME=/tmp -e ROCJITSU_RUNTIME_DIR=/run/rocjitsu \
     -v "$(dirname "$app"):/apps:ro" -v "$output:/tmp" \
     -v "$output/runtime:/run/rocjitsu" -w /tmp \
