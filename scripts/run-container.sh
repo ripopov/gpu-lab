@@ -8,6 +8,7 @@ platform=$4
 app=$5
 output=$6
 shift 6 # Remaining arguments are gem5 options, not configuration-script options.
+app_name=${app##*/}
 client="gpu-lab-samples-$$-sdk"
 server="gpu-lab-samples-$$-runner"
 uid=$(id -u)
@@ -66,13 +67,17 @@ if [[ "$backend" == gem5-kmd ]]; then
     client_namespace=(--pid="container:$server")
 fi
 
-timeout 300 docker run --rm --init --pull never --network none \
+app_timeout=300
+if [[ "$backend" == gem5-kmd && "$app_name" == hip-bf16-gemm-1024x512x1024 ]]; then
+    app_timeout=0
+fi
+timeout "$app_timeout" docker run --rm --init --pull never --network none \
     --platform "$platform" --name "$client" --user "$uid:$gid" \
     "${client_namespace[@]}" \
     -e HOME=/tmp -e ROCJITSU_RUNTIME_DIR=/run/rocjitsu \
     -v "$(dirname "$app"):/apps:ro" -v "$output:/tmp" \
     -v "$output/runtime:/run/rocjitsu" -w /tmp \
-    "$sdk" rocjitsu-run "${attach[@]}" "/apps/$(basename "$app")" \
+    "$sdk" rocjitsu-run "${attach[@]}" "/apps/$app_name" \
     2>&1 | tee "$output/app.log"
 
 if [[ "$backend" == gem5-kmd ]]; then

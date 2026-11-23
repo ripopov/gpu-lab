@@ -1,11 +1,12 @@
 # GPU lab samples
 
-Three self-checking HIP examples targeting gfx942 (MI300X):
+Self-checking HIP examples targeting gfx942 (MI300X):
 
 - **hip-vector-add** adds two vectors.
 - **hip-memcopy** copies an integer buffer with a GPU kernel.
 - **[hip-julia-fractal](hip-julia-fractal/README.md)** renders a supersampled
   320×240 Julia fractal.
+- **hip-bf16-gemm-1024x512x1024** computes a BF16 GEMM with a scalar FP32 accumulator per output.
 
 All validate their GPU results and return a nonzero status on failure.
 The vector-add and memory-copy sizes exercise multiple blocks and a partially
@@ -111,7 +112,7 @@ by the scripts. Both builds use the same CMake targets and preset options.
 ./build.sh hip-memcopy
 ./run.sh simdojo hip-memcopy
 ./run.sh gem5-kmd hip-vector-add
-./test.sh                 # build and run all six tests
+./test.sh                 # build and run all tests
 ./test.sh simdojo         # build and run one backend
 ./test.sh gem5-kmd
 ```
@@ -128,6 +129,9 @@ Run CMake directly only in an SDK environment, or use the host scripts above.
 The host coordinates both containers; the build container needs no Docker socket.
 Each test has its own containers and runtime files, and checks that the runner
 exits successfully. Containers are removed on completion or failure.
+
+The `hip-bf16-gemm-1024x512x1024` run on the eight-CU gem5-kmd model took 50 min 27 s of host wall time, including output verification.
+It runs without an application timeout.
 
 Run containers use Docker's `--init` to reap detached rocjitsu memory keepers.
 For gem5-kmd, the SDK container also joins the runner's private PID namespace
